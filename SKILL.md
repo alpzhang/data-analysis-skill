@@ -1,350 +1,141 @@
 ---
-name: scrapling-mcp
-description: Advanced web scraping with Scrapling — MCP-native guidance for extraction, crawling, and anti-bot handling. Use via mcporter (MCP) to call the `scrapling` MCP server for execution; this skill provides strategy, recipes, and best practices.
+name: Scrapling Web Scraping
+description: Zero-bot-detection web scraping for OpenClaw. Bypass Cloudflare, handle JavaScript-heavy sites, and adapt to website changes automatically. Use when you need to scrape protected websites, extract data from dynamic JavaScript SPAs, or bypass anti-bot detection systems. Supports three modes - basic (fast HTTP), stealth (undetectable), dynamic (browser automation).
+identifier: scrapling-web-scraping
+version: 1.0.0
+author: 老二
+category: web-scraping
 ---
 
-# Scrapling MCP — Web Scraping Guidance
+# Scrapling Web Scraping
 
-> **Guidance Layer + MCP Integration**  
-> Use this skill for **strategy and patterns**. For execution, call Scrapling's MCP server via `mcporter`.
+Zero-bot-detection web scraping for OpenClaw. Bypass Cloudflare, handle JavaScript-heavy sites, and adapt to website changes automatically.
 
-## Quick Start (MCP)
+## Quick Start
 
-### 1. Install Scrapling with MCP support
 ```bash
-pip install scrapling[mcp]
-# Or for full features:
-pip install scrapling[mcp,playwright]
-python -m playwright install chromium
+# Install Scrapling
+pip install "scrapling[all]"
+scrapling install
+
+# Basic usage
+python3 /root/.openclaw/skills/scrapling-web-scraping/scrapling_tool.py https://example.com
+
+# Bypass Cloudflare
+python3 /root/.openclaw/skills/scrapling-web-scraping/scrapling_tool.py https://protected-site.com --mode stealth --cloudflare
+
+# Extract specific data
+python3 /root/.openclaw/skills/scrapling-web-scraping/scrapling_tool.py https://example.com --selector ".product-title"
+
+# JavaScript-heavy sites
+python3 /root/.openclaw/skills/scrapling-web-scraping/scrapling_tool.py https://spa-app.com --mode dynamic --wait ".content-loaded"
 ```
 
-### 2. Add to OpenClaw MCP config
-```json
-{
-  "mcpServers": {
-    "scrapling": {
-      "command": "python",
-      "args": ["-m", "scrapling.mcp"]
-    }
-  }
-}
-```
+## Usage with OpenClaw
 
-### 3. Call via mcporter
-```
-mcporter call scrapling fetch_page --url "https://example.com"
-```
+### Natural Language Commands
 
-## Execution vs Guidance
+**Basic scraping:**
+> "用Scrapling抓取 https://example.com 的标题和所有链接"
 
-| Task | Tool | Example |
-|------|------|---------|
-| Fetch a page | **mcporter** | `mcporter call scrapling fetch_page --url URL` |
-| Extract with CSS | **mcporter** | `mcporter call scrapling css_select --selector ".title::text"` |
-| Which fetcher to use? | **This skill** | See "Fetcher Selection Guide" below |
-| Anti-bot strategy? | **This skill** | See "Anti-Bot Escalation Ladder" |
-| Complex crawl patterns? | **This skill** | See "Spider Recipes" |
+**Bypass protection:**
+> "用隐身模式抓取 https://protected-site.com，绕过Cloudflare"
 
-## Fetcher Selection Guide
+**Extract data:**
+> "抓取 https://shop.com 的商品名称和价格，CSS选择器是 .product"
 
-```
-┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│   Fetcher       │────▶│ DynamicFetcher   │────▶│ StealthyFetcher  │
-│   (HTTP)        │     │ (Browser/JS)     │     │ (Anti-bot)       │
-└─────────────────┘     └──────────────────┘     └──────────────────┘
-     Fastest              JS-rendered               Cloudflare, 
-     Static pages         SPAs, React/Vue          Turnstile, etc.
-```
+**Dynamic content:**
+> "抓取 https://spa-app.com，等待 .data-loaded 元素加载完成"
 
-### Decision Tree
-1. **Static HTML?** → `Fetcher` (10-100x faster)
-2. **Need JS execution?** → `DynamicFetcher`
-3. **Getting blocked?** → `StealthyFetcher`
-4. **Complex session?** → Use Session variants
-
-### MCP Fetch Modes
-- `fetch_page` — HTTP fetcher
-- `fetch_dynamic` — Browser-based with Playwright
-- `fetch_stealthy` — Anti-bot bypass mode
-
-## Anti-Bot Escalation Ladder
-
-### Level 1: Polite HTTP
-```python
-# MCP call: fetch_page with options
-{
-  "url": "https://example.com",
-  "headers": {"User-Agent": "..."},
-  "delay": 2.0
-}
-```
-
-### Level 2: Session Persistence
-```python
-# Use sessions for cookie/state across requests
-FetcherSession(impersonate="chrome")  # TLS fingerprint spoofing
-```
-
-### Level 3: Stealth Mode
-```python
-# MCP: fetch_stealthy
-StealthyFetcher.fetch(
-    url,
-    headless=True,
-    solve_cloudflare=True,  # Auto-solve Turnstile
-    network_idle=True
-)
-```
-
-### Level 4: Proxy Rotation
-See `references/proxy-rotation.md`
-
-## Adaptive Scraping (Anti-Fragile)
-
-Scrapling can **survive website redesigns** using adaptive selectors:
+### Python Code
 
 ```python
-# First run — save fingerprints
-products = page.css('.product', auto_save=True)
+# Basic scraping
+from scrapling.fetchers import Fetcher
+page = Fetcher.get('https://example.com')
+title = page.css('title::text').get()
 
-# Later runs — auto-relocate if DOM changed
-products = page.css('.product', adaptive=True)
+# Bypass Cloudflare
+from scrapling.fetchers import StealthyFetcher
+page = StealthyFetcher.fetch('https://protected.com', 
+                              headless=True, 
+                              solve_cloudflare=True)
+
+# JavaScript sites
+from scrapling.fetchers import DynamicFetcher
+page = DynamicFetcher.fetch('https://spa-app.com', 
+                             headless=True, 
+                             network_idle=True)
 ```
 
-**MCP usage:**
-```
-mcporter call scrapling css_select \\
-  --selector ".product" \\
-  --adaptive true \\
-  --auto-save true
-```
+## Features
 
-## Spider Framework (Large Crawls)
+| Feature | Command | Description |
+|---------|---------|-------------|
+| Basic Scrape | `--mode basic` | Fast HTTP requests |
+| Stealth Mode | `--mode stealth` | Bypass Cloudflare/anti-bot |
+| Dynamic Mode | `--mode dynamic` | Handle JavaScript sites |
+| CSS Selectors | `--selector ".class"` | Extract specific elements |
+| JSON Output | `--json` | Machine-readable output |
 
-When to use Spiders vs direct fetching:
-- ✅ **Spider**: 10+ pages, concurrency needed, resume capability, proxy rotation
-- ✅ **Direct**: 1-5 pages, quick extraction, simple flow
+## Examples
 
-### Basic Spider Pattern
-```python
-from scrapling.spiders import Spider, Response
-
-class ProductSpider(Spider):
-    name = "products"
-    start_urls = ["https://example.com/products"]
-    concurrent_requests = 10
-    download_delay = 1.0
-    
-    async def parse(self, response: Response):
-        for product in response.css('.product'):
-            yield {
-                "name": product.css('h2::text').get(),
-                "price": product.css('.price::text').get(),
-                "url": response.url
-            }
-        
-        # Follow pagination
-        next_page = response.css('.next a::attr(href)').get()
-        if next_page:
-            yield response.follow(next_page)
-
-# Run with resume capability
-result = ProductSpider(crawldir="./crawl_data").start()
-result.items.to_jsonl("products.jsonl")
-```
-
-### Advanced: Multi-Session Spider
-```python
-from scrapling.spiders import Spider, Request, Response
-from scrapling.fetchers import FetcherSession, AsyncStealthySession
-
-class MultiSessionSpider(Spider):
-    name = "multi"
-    start_urls = ["https://example.com/"]
-    
-    def configure_sessions(self, manager):
-        manager.add("fast", FetcherSession(impersonate="chrome"))
-        manager.add("stealth", AsyncStealthySession(headless=True), lazy=True)
-    
-    async def parse(self, response: Response):
-        for link in response.css('a::attr(href)').getall():
-            if "/protected/" in link:
-                yield Request(link, sid="stealth")
-            else:
-                yield Request(link, sid="fast")
-```
-
-### Spider Features
-- **Pause/Resume**: `crawldir` parameter saves checkpoints
-- **Streaming**: `async for item in spider.stream()` for real-time processing
-- **Auto-retry**: Configurable retry on blocked requests
-- **Export**: Built-in `to_json()`, `to_jsonl()`
-
-## CLI & Interactive Shell
-
-### Terminal Extraction (No Code)
+### 1. Scrape with CSS Selector
 ```bash
-# Extract to markdown
-scrapling extract get 'https://example.com' content.md
-
-# Extract specific element
-scrapling extract get 'https://example.com' content.txt \\
-  --css-selector '.article' \\
-  --impersonate 'chrome'
-
-# Stealth mode
-scrapling extract stealthy-fetch 'https://protected.com' content.md \\
-  --no-headless \\
-  --solve-cloudflare
+python3 scrapling_tool.py https://quotes.toscrape.com --selector ".quote .text" --json
 ```
 
-### Interactive Shell
+### 2. Bypass Cloudflare
 ```bash
-scrapling shell
-
-# Inside shell:
->>> page = Fetcher.get('https://example.com')
->>> page.css('h1::text').get()
->>> page.find_all('div', class_='item')
+python3 scrapling_tool.py https://nopecha.com/demo/cloudflare --mode stealth --cloudflare
 ```
 
-## Parser API (Beyond CSS/XPath)
-
-### BeautifulSoup-Style Methods
-```python
-# Find by attributes
-page.find_all('div', {'class': 'product', 'data-id': True})
-page.find_all('div', class_='product', id=re.compile(r'item-\\d+'))
-
-# Text search
-page.find_by_text('Add to Cart', tag='button')
-page.find_by_regex(r'\\$\\d+\\.\\d{2}')
-
-# Navigation
-first = page.css('.product')[0]
-parent = first.parent
-siblings = first.next_siblings
-children = first.children
-
-# Similarity
-similar = first.find_similar()  # Find visually/structurally similar elements
-below = first.below_elements()  # Elements below in DOM
+### 3. Wait for Dynamic Content
+```bash
+python3 scrapling_tool.py https://spa-app.com --mode dynamic --wait ".loaded" --json
 ```
 
-### Auto-Generated Selectors
-```python
-# Get robust selector for any element
-element = page.css('.product')[0]
-selector = element.auto_css_selector()  # Returns stable CSS path
-xpath = element.auto_xpath()
+## CLI Reference
+
+```
+python3 scrapling_tool.py URL [options]
+
+Options:
+  --mode {basic,stealth,dynamic}  Scraping mode (default: basic)
+  --selector, -s CSS_SELECTOR     Extract specific elements
+  --cloudflare                    Solve Cloudflare (stealth mode only)
+  --wait SELECTOR                 Wait for element (dynamic mode only)
+  --json, -j                      Output as JSON
 ```
 
-## Proxy Rotation
+## Advanced: Custom Scripts
+
+Create custom scraping scripts in `/root/.openclaw/skills/scrapling-web-scraping/`:
 
 ```python
-from scrapling.spiders import ProxyRotator
+from scrapling.fetchers import StealthyFetcher
 
-# Cyclic rotation
-rotator = ProxyRotator([
-    "http://proxy1:8080",
-    "http://proxy2:8080",
-    "http://user:pass@proxy3:8080"
-], strategy="cyclic")
-
-# Use with any session
-with FetcherSession(proxy=rotator.next()) as session:
-    page = session.get('https://example.com')
+# Your custom scraper
+def scrape_products(url):
+    page = StealthyFetcher.fetch(url, headless=True)
+    products = []
+    for item in page.css('.product'):
+        products.append({
+            'name': item.css('.name::text').get(),
+            'price': item.css('.price::text').get(),
+            'link': item.css('a::attr(href)').get()
+        })
+    return products
 ```
 
-## Common Recipes
+## Notes
 
-### Pagination Patterns
-```python
-# Page numbers
-for page_num in range(1, 11):
-    url = f"https://example.com/products?page={page_num}"
-    ...
+- Requires Python 3.10+
+- First run: `scrapling install` to download browsers
+- Respect website Terms of Service
+- Use responsibly
 
-# Next button
-while next_page := response.css('.next a::attr(href)').get():
-    yield response.follow(next_page)
+---
 
-# Infinite scroll (DynamicFetcher)
-with DynamicSession() as session:
-    page = session.fetch(url)
-    page.scroll_to_bottom()
-    items = page.css('.item').getall()
-```
-
-### Login Sessions
-```python
-with StealthySession(headless=False) as session:
-    # Login
-    login_page = session.fetch('https://example.com/login')
-    login_page.fill('input[name="username"]', 'user')
-    login_page.fill('input[name="password"]', 'pass')
-    login_page.click('button[type="submit"]')
-    
-    # Now session has cookies
-    protected_page = session.fetch('https://example.com/dashboard')
-```
-
-### Next.js Data Extraction
-```python
-# Extract JSON from __NEXT_DATA__
-import json
-import re
-
-next_data = json.loads(
-    re.search(
-        r'__NEXT_DATA__" type="application/json">(.*?)</script>',
-        page.html_content,
-        re.S
-    ).group(1)
-)
-props = next_data['props']['pageProps']
-```
-
-## Output Formats
-
-```python
-# JSON (pretty)
-result.items.to_json('output.json')
-
-# JSONL (streaming, one per line)
-result.items.to_jsonl('output.jsonl')
-
-# Python objects
-for item in result.items:
-    print(item['title'])
-```
-
-## Performance Tips
-
-1. **Use HTTP fetcher when possible** — 10-100x faster than browser
-2. **Impersonate browsers** — `impersonate='chrome'` for TLS fingerprinting
-3. **HTTP/3 support** — `FetcherSession(http3=True)`
-4. **Limit resources** — `disable_resources=True` in Dynamic/Stealthy
-5. **Connection pooling** — Reuse sessions across requests
-
-## Guardrails (Always)
-
-- Only scrape content you're authorized to access
-- Respect robots.txt and ToS
-- Add delays (`download_delay`) for large crawls
-- Don't bypass paywalls or authentication without permission
-- Never scrape personal/sensitive data
-
-## References
-
-- `references/mcp-setup.md` — Detailed MCP configuration
-- `references/anti-bot.md` — Anti-bot handling strategies
-- `references/proxy-rotation.md` — Proxy setup and rotation
-- `references/spider-recipes.md` — Advanced crawling patterns
-- `references/api-reference.md` — Quick API reference
-- `references/links.md` — Official docs links
-
-## Scripts
-
-- `scripts/scrapling_scrape.py` — Quick one-off extraction
-- `scripts/scrapling_smoke_test.py` — Test connectivity and anti-bot indicators
+**Created**: 2026-03-05 by 老二
+**Source**: https://github.com/D4Vinci/Scrapling
